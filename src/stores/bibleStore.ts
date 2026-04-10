@@ -1,68 +1,49 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-
-export interface BibleVersion {
-  id: string;
-  name: string;
-  language: string;
-}
+import { BibleVersion } from '../types/bible';
 
 interface BibleState {
   currentBook: string;
   chapter: number;
   primaryVersion: string;
+  parallelVersion: string;
   isParallel: boolean;
   availableVersions: BibleVersion[];
   setBook: (book: string) => void;
   setChapter: (chapter: number) => void;
-  setVersions: (versionId: string) => void;
+  setVersions: (primary?: string, parallel?: string) => void;
   toggleParallel: () => void;
-  nextChapter: (maxChapter: number) => void;
+  setAvailableVersions: (versions: BibleVersion[]) => void;
+  nextChapter: (maxChapters: number) => void;
   prevChapter: () => void;
 }
 
-const DEFAULT_VERSIONS: BibleVersion[] = [
-  { id: 'GASRN', name: 'Ga New Testament (Dramatized)', language: 'ga' },
-  { id: 'KJV', name: 'King James Version', language: 'en' },
-  { id: 'NIV', name: 'New International Version', language: 'en' },
-  { id: 'ESV', name: 'English Standard Version', language: 'en' },
-];
-
-export const useBibleStore = create<BibleState>()(
-  persist(
-    (set, get) => ({
-      currentBook: 'JHN',
-      chapter: 3,
-      primaryVersion: 'GASRN',
-      isParallel: false,
-      availableVersions: DEFAULT_VERSIONS,
-
-      setBook: (book: string) => set({ currentBook: book, chapter: 1 }),
-
-      setChapter: (chapter: number) => set({ chapter }),
-
-      setVersions: (versionId: string) => set({ primaryVersion: versionId }),
-
-      toggleParallel: () => set((state) => ({ isParallel: !state.isParallel })),
-
-      nextChapter: (maxChapter: number) => {
-        const { chapter } = get();
-        if (chapter < maxChapter) set({ chapter: chapter + 1 });
-      },
-
-      prevChapter: () => {
-        const { chapter } = get();
-        if (chapter > 1) set({ chapter: chapter - 1 });
-      },
-    }),
-    {
-      name: 'ga-bible-store',
-      partialize: (state) => ({
-        currentBook: state.currentBook,
-        chapter: state.chapter,
-        primaryVersion: state.primaryVersion,
-        isParallel: state.isParallel,
-      }),
-    },
-  ),
-);
+export const useBibleStore = create<BibleState>((set) => ({
+  currentBook: 'GEN',
+  chapter: 1,
+  primaryVersion: 'TPT',
+  parallelVersion: 'NEG',
+  isParallel: false,
+  availableVersions: [
+    { id: 'TPT', name: 'The Passion Translation' },
+    { id: 'CJB', name: 'Complete Jewish Bible' },
+    { id: 'TOJB', name: 'The Orthodox Jewish Bible' },
+    { id: 'NEG', name: 'Ga (NEGAB)' },
+  ],
+  setBook: (book) => set({ currentBook: book, chapter: 1 }),
+  setChapter: (chapter) => set({ chapter }),
+  setVersions: (primary, parallel) =>
+    set((state) => ({
+      primaryVersion: primary ?? state.primaryVersion,
+      parallelVersion: parallel ?? state.parallelVersion,
+    })),
+  toggleParallel: () => set((state) => ({ isParallel: !state.isParallel })),
+  setAvailableVersions: (versions) => set({ availableVersions: versions }),
+  nextChapter: (maxChapters) =>
+    set((state) => ({
+      chapter: state.chapter < maxChapters ? state.chapter + 1 : state.chapter,
+    })),
+  prevChapter: () =>
+    set((state) => ({
+      chapter: state.chapter > 1 ? state.chapter - 1 : state.chapter,
+    })),
+}));

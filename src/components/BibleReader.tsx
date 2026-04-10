@@ -1,122 +1,178 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
+import { BibleChapter, BibleVerse } from '../types/bible';
 import { useBibleStore } from '../stores/bibleStore';
-import { fetchVerses } from '../services';
+import { useAudioStore } from '../stores/audioStore';
+import { getChapterContent } from '../services/youversion';
+import { getFilesetId } from '../services/biblebrain';
 
-interface Verse {
-  verse_start: number;
-  verse_end: number;
-  verse_text: string;
+interface BibleReaderProps {
+  highlightedVerse?: number | null;
+  onVerseClick?: (verseNum: number, e?: React.MouseEvent) => void;
 }
 
-interface Props {
-  highlightedVerse: number | null;
-  onVerseClick: (verseNum: number, e?: React.MouseEvent) => void;
-}
-
-export default function BibleReader({ highlightedVerse, onVerseClick }: Props) {
-  const { currentBook, chapter, primaryVersion, isParallel } = useBibleStore();
-  const [verses, setVerses] = useState<Verse[]>([]);
-  const [parallelVerses, setParallelVerses] = useState<Verse[]>([]);
-  const [loading, setLoading] = useState(false);
+export default function BibleReader({ highlightedVerse, onVerseClick }: BibleReaderProps) {
+  const { currentBook, chapter, primaryVersion, parallelVersion, isParallel } = useBibleStore();
+  const [primaryChapter, setPrimaryChapter] = useState<BibleChapter | null>(null);
+  const [parallelChapter, setParallelChapter] = useState<BibleChapter | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Subscribe to highlightedVerse from audio store for audio sync
+  const audioHighlightedVerse = useAudioStore((s) => s.highlightedVerse);
+
+  // Refs for auto-scrolling highlighted verses
+  const verseRefs = useRef<Map<number, HTMLSpanElement>>(new Map());
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // The effective highlighted verse: prefer audio highlight, fall back to manual click
+  const effectiveHighlighted = audioHighlightedVerse ?? highlightedVerse ?? null;
+
+  // Auto-scroll to the highlighted verse when audio plays
   useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      setError(null);
+    if (effectiveHighlighted === null) return;
+
+    const el = verseRefs.current.get(effectiveHighlighted);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [effectiveHighlighted]);
+
+  // Load audio passage when reader navigates to a new book/chapter
+  const loadAudioPassage = useCallback(async (book: string, ch: number) => {
+    const { loadPassage } = useAudioStore.getState();
+    if (!book || ch < 1) return;
+
+    try {
+      const fsId = await getFilesetId('gaa');
+      loadPassage(book, ch, fsId);
+    } catch {
+      // Audio load is non-blocking; errors are handled in the hook
+    }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    // Load audio for the new passage in the background
+    loadAudioPassage(currentBook, chapter);
+
+    async function fetchChapter(versionId: string, book: string, ch: number): Promise<BibleChapter | null> {
       try {
-        const data = await fetchVerses(currentBook, chapter, primaryVersion);
-        setVerses(data);
-        if (isParallel) {
-          const parallel = await fetchVerses(currentBook, chapter, 'KJV');
-          setParallelVerses(parallel);
+        const data = await getChapterContent(versionId, book, ch);
+        return data;
+      } catch {
+        return null;
+      }
+    }
+
+    async function load() {
+      const [primary, parallel] = await Promise.allSettled([
+        fetchChapter(primaryVersion, currentBook, chapter),
+        isParallel ? fetchChapter(parallelVersion, currentBook, chapter) : Promise.resolve(null),
+      ]);
+
+      if (!cancelled) {
+        if (primary.status === 'fulfilled' && primary.value) {
+          setPrimaryChapter(primary.value);
+        } else {
+          setError(`Failed to load ${primaryVersion} ${currentBook} ${chapter}`);
         }
-      } catch (err) {
-        setError('Failed to load verses. Please check your API key and try again.');
-        console.error(err);
-      } finally {
+        if (parallel.status === 'fulfilled') {
+          setParallelChapter(parallel.value);
+        }
         setLoading(false);
       }
-    };
+    }
 
     load();
-  }, [currentBook, chapter, primaryVersion, isParallel]);
+    return () => { cancelled = true; };
+  }, [currentBook, chapter, primaryVersion, parallelVersion, isParallel, loadAudioPassage]);
+
+  // Register a verse ref for scroll target
+  const registerVerseRef = useCallback((verseNum: number, el: HTMLSpanElement | null) => {
+    if (el) {
+      verseRefs.current.set(verseNum, el);
+    } else {
+      verseRefs.current.delete(verseNum);
+    }
+  }, []);
+
+  function renderVerses(chapterData: BibleChapter, versionLabel: string) {
+    return (
+      <div className="flex-1" ref={scrollContainerRef}>
+        {versionLabel && (
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-stone-500 mb-3">
+            {versionLabel}
+          </h3>
+        )}
+        <div className="space-y-2 font-serif text-lg leading-relaxed text-stone-800">
+          {chapterData.verses.map((verse: BibleVerse) => {
+            const isHighlighted = effectiveHighlighted !== null && verse.number === effectiveHighlighted;
+            return (
+              <span
+                key={verse.number}
+                ref={(el) => registerVerseRef(verse.number, el)}
+                data-verse={verse.number}
+                role="button"
+                tabIndex={0}
+                onClick={(e) => onVerseClick?.(verse.number, e)}
+                onKeyDown={(e) => { if (e.key === 'Enter') onVerseClick?.(verse.number); }}
+                className={`cursor-pointer rounded px-0.5 py-0.5 transition-colors duration-200 ${
+                  isHighlighted
+                    ? 'bg-yellow-200 ring-1 ring-yellow-400'
+                    : 'hover:bg-stone-100'
+                }`}
+              >
+                <sup className="text-xs font-sans text-stone-400 mr-1 select-none">
+                  {verse.number}
+                </sup>
+                {verse.text}{' '}
+              </span>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-64 p-8">
+      <div className="flex items-center justify-center py-16">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin" />
-          <p className="text-stone-500 text-sm">Loading scripture...</p>
+          <div className="w-8 h-8 border-2 border-primary-300 border-t-primary-600 rounded-full animate-spin" />
+          <p className="text-sm text-stone-500">Loading chapter...</p>
         </div>
       </div>
     );
   }
 
-  if (error) {
+  if (error || !primaryChapter) {
     return (
-      <div className="p-8 text-center text-red-600">
-        <p className="mb-2 font-medium">Error loading verses</p>
-        <p className="text-sm text-stone-500">{error}</p>
+      <div className="text-center py-16 text-stone-500">
+        <p className="text-lg">{error || 'Chapter not found'}</p>
+        <p className="text-sm mt-2">Try selecting a different book or chapter.</p>
       </div>
     );
   }
 
-  if (!verses.length) {
-    return (
-      <div className="p-8 text-center text-stone-400">
-        <p>No verses found for this chapter.</p>
-      </div>
-    );
-  }
+  const bookName = primaryChapter.verses[0]?.ref?.split(' ')[0] || currentBook;
 
   return (
-    <div className={`px-4 py-6 ${isParallel ? 'grid grid-cols-2 gap-6' : ''}`}>
-      {/* Primary column */}
-      <div className="space-y-1">
-        {isParallel && (
-          <h3 className="text-xs uppercase tracking-widest text-stone-400 font-semibold mb-4 pb-2 border-b border-stone-200">
-            {primaryVersion}
-          </h3>
-        )}
-        {verses.map((v) => (
-          <p
-            key={v.verse_start}
-            onClick={(e) => onVerseClick(v.verse_start, e)}
-            className={`text-stone-800 leading-relaxed py-1.5 px-2 rounded cursor-pointer hover:bg-stone-100 transition-colors text-base ${
-              highlightedVerse === v.verse_start
-                ? 'bg-amber-50 border-l-4 border-amber-400 pl-3'
-                : ''
-            }`}
-          >
-            <sup className="text-[0.65rem] text-stone-400 font-bold mr-1.5 select-none">
-              {v.verse_start}
-            </sup>
-            {v.verse_text}
-          </p>
-        ))}
-      </div>
+    <div className="px-4 py-6">
+      <h2 className="text-2xl font-bold text-stone-900 mb-6 text-center font-serif">
+        {bookName} {primaryChapter.number}
+      </h2>
 
-      {/* Parallel column */}
-      {isParallel && (
-        <div className="space-y-1 border-l border-stone-200 pl-6">
-          <h3 className="text-xs uppercase tracking-widest text-stone-400 font-semibold mb-4 pb-2 border-b border-stone-200">
-            KJV (English)
-          </h3>
-          {parallelVerses.map((v) => (
-            <p
-              key={v.verse_start}
-              className={`text-stone-700 leading-relaxed py-1.5 px-2 rounded text-base ${
-                highlightedVerse === v.verse_start ? 'bg-amber-50' : ''
-              }`}
-            >
-              <sup className="text-[0.65rem] text-stone-400 font-bold mr-1.5 select-none">
-                {v.verse_start}
-              </sup>
-              {v.verse_text}
-            </p>
-          ))}
+      {isParallel && parallelChapter ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {renderVerses(primaryChapter, primaryVersion)}
+          <div className="hidden md:block w-px bg-stone-200" />
+          {renderVerses(parallelChapter, `${parallelVersion} (Ga)`)}
         </div>
+      ) : (
+        renderVerses(primaryChapter, '')
       )}
     </div>
   );
