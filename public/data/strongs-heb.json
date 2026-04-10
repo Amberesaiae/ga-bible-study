@@ -1,0 +1,15 @@
+{
+  "strongs-heb.json": {
+    "description": "Placeholder structure for the full Hebrew Strong's dictionary",
+    "pattern": {
+      "H430": {
+        "lemma": "אֱלֹהִים",
+        "transliteration": "elohiym",
+        "pronunciation": "el-o-heem'",
+        "definition": "God, gods, judges, angels; plural of H433; gods in the ordinary sense; but specifically used (in the plural thus, especially with the article) of the supreme God",
+        "partOfSpeech": "noun",
+        "strongsNumber": "H430"
+      }
+    }
+  }
+}

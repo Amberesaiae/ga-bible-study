@@ -1,0 +1,66 @@
+{
+  "G2424": {
+    "lemma": "Ἰησοῦς",
+    "transliteration": "Iēsous",
+    "pronunciation": "ee-ay-sooce'",
+    "definition": "Jesus = 'Jehovah is salvation'; the Son of God, the Saviour of mankind, God incarnate",
+    "partOfSpeech": "proper noun",
+    "strongsNumber": "G2424"
+  },
+  "G2316": {
+    "lemma": "θεός",
+    "transliteration": "theos",
+    "pronunciation": "theh'-os",
+    "definition": "God, a god, deity; the Supreme Divinity, the God of Israel",
+    "partOfSpeech": "noun",
+    "strongsNumber": "G2316"
+  },
+  "G25": {
+    "lemma": "ἀγάπη",
+    "transliteration": "agape",
+    "pronunciation": "ag-ah'-pay",
+    "definition": "love, goodwill, benevolence; divine love, the love of God for humanity",
+    "partOfSpeech": "noun",
+    "strongsNumber": "G25"
+  },
+  "G2532": {
+    "lemma": "καί",
+    "transliteration": "kai",
+    "pronunciation": "kahee",
+    "definition": "and, also, even, indeed, but; a primary particle, having a copulative and sometimes also a cumulative force",
+    "partOfSpeech": "conjunction",
+    "strongsNumber": "G2532"
+  },
+  "G3056": {
+    "lemma": "λόγος",
+    "transliteration": "logos",
+    "pronunciation": "log'-os",
+    "definition": "word, speech, divine utterance, analogy; the Word -- the Second Person of the Trinity, before and after he became incarnate",
+    "partOfSpeech": "noun",
+    "strongsNumber": "G3056"
+  },
+  "G5485": {
+    "lemma": "χάρις",
+    "transliteration": "charis",
+    "pronunciation": "khar'-ece",
+    "definition": "grace, kindness, favor, gratitude; the absolutely free expression of the loving kindness of God to men finding its only motive in the bounty and benevolence of the Giver",
+    "partOfSpeech": "noun",
+    "strongsNumber": "G5485"
+  },
+  "G4102": {
+    "lemma": "πίστις",
+    "transliteration": "pistis",
+    "pronunciation": "pis'-tis",
+    "definition": "faith, belief, trust, confidence; fidelity, faithfulness; conviction of the truth of anything, belief",
+    "partOfSpeech": "noun",
+    "strongsNumber": "G4102"
+  },
+  "G444": {
+    "lemma": "ἄνθρωπος",
+    "transliteration": "anthropos",
+    "pronunciation": "anth'-ro-pos",
+    "definition": "a human being, man, person; mankind, humanity",
+    "partOfSpeech": "noun",
+    "strongsNumber": "G444"
+  }
+}
